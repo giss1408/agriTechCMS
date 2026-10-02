@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+apps/backend/*.db
+apps/backend/uploads/
+apps/backend/.env
+
+# Node
+node_modules/
+apps/web-admin/dist/
+*.tsbuildinfo
+apps/web-admin/.env
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agritech
+      POSTGRES_PASSWORD: agritech
+      POSTGRES_DB: agritech
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agritech"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./apps/backend
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      AGT_ENV: dev
+      AGT_DATABASE_URL: postgresql+asyncpg://agritech:agritech@db:5432/agritech
+      AGT_AUTO_CREATE_SCHEMA: "false"
+      AGT_PUBLIC_WEB_URL: http://localhost:5173
+    ports: ["8000:8000"]
+    volumes: [uploads:/app/uploads]
+
+volumes:
+  pgdata:
+  uploads:
