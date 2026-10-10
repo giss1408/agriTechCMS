@@ -4,6 +4,7 @@ import '../data/app_state.dart';
 import '../data/models.dart';
 import '../logic.dart';
 import 'collection_form_screen.dart';
+import 'report_screen.dart';
 
 const _statusLabel = {
   'pending_validation': 'À valider au bureau',
@@ -97,14 +98,17 @@ class _TodayScreenState extends State<TodayScreen> {
                       title: Text('${c.producerName} — ${c.weightKg.toString().replaceAll('.', ',')} kg ${c.quality}'),
                       subtitle: Text('${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')} · $label', style: TextStyle(color: color)),
                       trailing: Text(fcfa(c.amount ?? c.estimatedAmount ?? 0), style: const TextStyle(fontWeight: FontWeight.w600)),
-                      onTap: c.editable ? () => _edit(c) : null,
+                      // Sent collections can no longer be edited on the phone: report the error to the office instead.
+                      onTap: c.editable
+                          ? () => _edit(c)
+                          : () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportScreen(state: widget.state, collection: c))),
                       onLongPress: c.editable ? () => _delete(c) : null,
                     );
                   },
                 ),
         ),
         if (_rows.any((r) => r.editable))
-          const Padding(padding: EdgeInsets.all(12), child: Text('Touchez une collecte non envoyée pour la corriger, appui long pour la supprimer.', textAlign: TextAlign.center)),
+          const Padding(padding: EdgeInsets.all(12), child: Text('Touchez une collecte non envoyée pour la corriger, appui long pour la supprimer. Une collecte déjà envoyée : touchez-la pour signaler une erreur.', textAlign: TextAlign.center)),
       ]),
     );
   }

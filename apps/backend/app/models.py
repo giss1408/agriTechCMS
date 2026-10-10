@@ -62,6 +62,7 @@ class Cooperative(Timestamped, Base):
     max_weight_kg: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("1000"))
     producer_seq: Mapped[int] = mapped_column(default=0)
     lot_seq: Mapped[int] = mapped_column(default=0)
+    issue_seq: Mapped[int] = mapped_column(default=0)
 
 
 class User(Timestamped, Base):
@@ -321,6 +322,35 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String(30))
     changes: Mapped[dict[str, Any]] = mapped_column(default=dict)
     at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class Issue(Timestamped, Base):
+    """A problem reported by a collector, a manager, a producer (USSD) or a buyer (public trace page)."""
+
+    __tablename__ = "issues"
+    __table_args__ = (
+        UniqueConstraint("cooperative_id", "client_uuid", name="uq_issue_client_uuid"),
+        Index("ix_issues_coop_status", "cooperative_id", "status"),
+    )
+    id: Mapped[str] = _pk("iss")
+    cooperative_id: Mapped[str] = _coop_fk()
+    client_uuid: Mapped[str | None] = mapped_column(String(64))  # set by the phone: offline queue retries are idempotent
+    reference: Mapped[str] = mapped_column(String(20))  # read out on the phone: "SIG-0042"
+    source: Mapped[str] = mapped_column(String(10))  # mobile | web | ussd | public
+    # app_bug | sync | data_error | payment | account | other
+    category: Mapped[str] = mapped_column(String(20))
+    message: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(12), default="open")  # open -> in_progress -> resolved
+    reporter_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    reporter_name: Mapped[str | None] = mapped_column(String(150))
+    reporter_phone: Mapped[str | None] = mapped_column(String(30))
+    collection_id: Mapped[str | None] = mapped_column(ForeignKey("collections.id"))
+    producer_id: Mapped[str | None] = mapped_column(ForeignKey("producers.id"))
+    lot_id: Mapped[str | None] = mapped_column(ForeignKey("lots.id"))
+    context: Mapped[dict[str, Any]] = mapped_column(default=dict)  # app version, screen, connection… (no secrets)
+    resolution_note: Mapped[str | None] = mapped_column(Text)
+    resolved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    resolved_at: Mapped[datetime | None]
 
 
 class Notification(Base):

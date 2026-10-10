@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.timeutil import campaign_bounds, campaign_of, utcnow
-from ..models import Collection, Cooperative, Lot, Parcel, Payment, Producer, SyncDevice, User
+from ..models import Collection, Cooperative, Issue, Lot, Parcel, Payment, Producer, SyncDevice, User
 
 
 def _day_start(dt: datetime) -> datetime:
@@ -60,6 +60,7 @@ async def summary(db: AsyncSession, coop: Cooperative) -> dict:
             SyncDevice.last_push_at < now - timedelta(days=3),
         )
     )
+    open_issues = await scalar(select(func.count()).where(Issue.cooperative_id == coop.id, Issue.status != "resolved"))
     open_lots = await scalar(select(func.count()).where(Lot.cooperative_id == coop.id, Lot.status == "open"))
 
     day_col = func.date(Collection.collected_at)
@@ -89,6 +90,9 @@ async def summary(db: AsyncSession, coop: Cooperative) -> dict:
     ).all()
 
     alerts = []
+    if open_issues:
+        alerts.append({"level": "warning", "code": "open_issues", "count": open_issues,
+                       "message": f"{open_issues} signalement(s) à traiter", "link": "/issues"})
     if stale_pending:
         alerts.append({"level": "warning", "code": "stale_pending", "count": stale_pending,
                        "message": f"{stale_pending} collecte(s) en attente de validation depuis plus de 48 h", "link": "/collections?status=pending_validation"})

@@ -8,16 +8,19 @@
   follow the campaign on a dashboard.
 - **Buyers** open a **traceability page per lot**: producers, geolocated parcels, EUDR completeness, GeoJSON export.
 - **Producers** check their balance and last deliveries by **USSD**, from any phone.
+- **Anyone can report a problem** — collectors (even offline), managers, producers by USSD, buyers from a lot page —
+  into one inbox the cooperative handles.
 
 > Status: **MVP for field validation** (Phase A of [the roadmap](docs/business/05-roadmap.md)).
 > It runs end to end on a laptop with a realistic demo cooperative, to be shown to cooperative leaders
-> before investing in the pilot.
+> before investing in the pilot. Built for 2G/3G links: a routine phone sync costs ~0.2 KB
+> ([details](docs/technical/09-low-bandwidth.md)).
 
 ## Repository
 
 | Path | What |
 |---|---|
-| [apps/backend](apps/backend) | API — FastAPI, PostgreSQL/SQLite, Alembic, 19 tests |
+| [apps/backend](apps/backend) | API — FastAPI, PostgreSQL/SQLite, Alembic, 29 tests |
 | [apps/web-admin](apps/web-admin) | Manager web app + public buyer page — React, TypeScript, Vite |
 | [apps/mobile-collector](apps/mobile-collector) | Collector app — Flutter, offline-first (SQLite outbox) |
 | [docs/business](docs/business) | Vision, market, field validation, acquisition, roadmap (FR) |
@@ -44,4 +47,5 @@ Details: [docs/technical/08-development.md](docs/technical/08-development.md).
 2. Airplane mode off → the delivery appears in the web app (*Collectes*, badge "À valider").
 3. Validate it → *Lots* → add to a lot → *Sceller* → open *Page acheteur*.
 4. *Paiements* → select the producer → *Payer la sélection* → *Paramètres → SMS envoyés*: the producer's confirmation.
-5. `curl -X POST "localhost:8000/v1/channels/ussd?key=dev-ussd-key" -d phoneNumber=<producer phone> -d text=1` → the producer's balance.
+5. `curl -X POST "localhost:8000/v1/channels/ussd?key=dev-ussd-key" -d phoneNumber=<producer phone> -d text=1` → the producer's balance;
+   `-d "text=4*1"` → the producer disputes a weight, which appears in *Signalements*. Resolve it there: the producer gets an SMS.

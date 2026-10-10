@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/app_state.dart';
 import '../data/models.dart';
 import 'collection_form_screen.dart';
+import 'report_screen.dart';
 import 'scan_screen.dart';
 import 'today_screen.dart';
 
@@ -74,9 +75,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   final msg = await state.sync(full: true);
                   if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
                 }
+                if (v == 'report' && context.mounted) {
+                  await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportScreen(state: state)));
+                }
                 if (v == 'logout') await state.logout();
               },
               itemBuilder: (_) => const [
+                PopupMenuItem(value: 'report', child: Text('Signaler un problème')),
                 PopupMenuItem(value: 'full', child: Text('Tout re-télécharger')),
                 PopupMenuItem(value: 'logout', child: Text('Se déconnecter')),
               ],
@@ -103,6 +108,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 24),
               Text('${state.producerCount} producteurs disponibles hors-ligne', textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => ReportScreen(state: state))),
+                icon: const Icon(Icons.flag_outlined),
+                label: Text(state.pendingIssues > 0 ? 'Signaler un problème (${state.pendingIssues} en attente d\'envoi)' : 'Signaler un problème'),
+              ),
             ],
           ),
         ),

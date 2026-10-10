@@ -24,13 +24,14 @@ async def push(body: SyncPushIn, db: AsyncSession = Depends(get_db), user: User 
 @router.get("/pull", response_model=Envelope[SyncPullOut])
 async def pull(
     since: datetime | None = None,
+    ref: str | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_staff),
     x_device_id: str | None = Header(default=None),
 ):
     """Everything the phone needs to work offline. Omit `since` for a full download; afterwards pass the
-    `cursor` from the previous response."""
-    return ok(await svc.pull(db, user, since, x_device_id))
+    `cursor` from the previous response, and `ref` = the last `ref_hash` to skip unchanged prices/zones/settings."""
+    return ok(await svc.pull(db, user, since, x_device_id, ref))
 
 
 @router.get("/devices", response_model=Envelope[list[DeviceOut]])

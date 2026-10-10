@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { ReportProblem } from "../components/ReportProblem";
 import { Drawer, Empty, ErrorBox, Loading, PageHead, Pager, Status, useToast } from "../components/ui";
 import { api, download } from "../lib/api";
 import { STATUS_LABEL, dateTime, fcfa, kg, num } from "../lib/format";
@@ -151,6 +152,7 @@ function CollectionDrawer({ collection, onClose }: { collection: Collection; onC
   const detail = useQuery({ queryKey: ["collection", collection.id], queryFn: () => api.get<Collection>(`/collections/${collection.id}`), initialData: collection });
   const history = useQuery({ queryKey: ["collection", collection.id, "history"], queryFn: () => api.get<HistoryItem[]>(`/collections/${collection.id}/history`) });
   const [rejecting, setRejecting] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState("");
   const c = detail.data;
 
@@ -211,6 +213,8 @@ function CollectionDrawer({ collection, onClose }: { collection: Collection; onC
           </div>
         )}
         <ErrorBox error={act.error} />
+        <div><button className="sm ghost" onClick={() => setReporting(true)}>⚑ Signaler un problème sur cette collecte</button></div>
+        {reporting && <ReportProblem collectionId={c.id} collectionLabel={`${c.reference} — ${c.producer_name}`} onClose={() => setReporting(false)} />}
 
         <div>
           <h3 style={{ marginBottom: 8 }}>Historique</h3>

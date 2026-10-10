@@ -8,13 +8,13 @@ sequenceDiagram
   participant P as Phone (SQLite)
   participant S as API
   Note over P: Offline: each weighing saved in `outbox`<br/>with a client_uuid, sync_state = pending
-  P->>S: POST /sync/push {device_id, device_time, collections[≤100]}
+  P->>S: POST /sync/push {device_id, device_time, collections[≤25]} (gzip body)
   S->>S: offset = server_now − device_time<br/>for each item: ingest (idempotent on client_uuid)
   S-->>P: accepted[] (incl. duplicates), rejected[] {code, message}, clock_offset_seconds
   P->>P: accepted → synced (store id, reference, server amount)<br/>rejected → shown to the collector for correction
-  P->>S: GET /sync/pull?since=<cursor>  (X-Device-Id)
-  S-->>P: producers changed, all prices, zones, settings,<br/>own collections changed (statuses), new cursor
-  P->>P: upsert; replace prices; store cursor
+  P->>S: GET /sync/pull?since=<cursor>&ref=<ref_hash>  (X-Device-Id)
+  S-->>P: producers changed (slim), own collections changed (statuses),<br/>prices/zones/settings only if ref_hash changed, new cursor + ref_hash
+  P->>P: upsert; replace prices if sent; store cursor and ref_hash
 ```
 
 ## Rules
@@ -27,7 +27,7 @@ sequenceDiagram
 | Rejected items stay on the phone (`sync_state = rejected`) with the server message | The collector corrects and re-sends, nothing is lost silently |
 | The outbox is never purged on logout | A dead session must not destroy unsent work |
 | Server computes amounts and statuses | Phone shows an estimate from cached prices; the server's value replaces it after sync |
-| Prices and zones always sent in full | Small; the phone replaces its copy (no deletion tracking needed) |
+| Prices, zones and settings versioned by `ref_hash`: sent in full when changed, `null` otherwise | Small when sent, zero when unchanged; no deletion tracking needed |
 | Producers sent incrementally, including `inactive` ones | So the phone can hide deactivated producers |
 | `cursor` = server time − 30 s | A row committed just after the read could carry an earlier `updated_at`; the overlap re-sends a few rows, harmless with upserts |
 
@@ -45,9 +45,12 @@ made on 30 September and synced on 2 October keeps the old campaign price.
 ## Triggers on the phone
 
 - Connectivity comes back (`connectivity_plus` event)
-- A new weighing is saved while online
+- A new weighing is saved while online (push only; automatic pulls at most every 15 min)
 - Every 3 minutes while there is something pending (some phones report connectivity late)
+- After a network failure, automatic attempts back off 1 → 30 min; a connectivity change resets it
 - Pull-to-refresh and the *Synchroniser* button; *Tout re-télécharger* forces a full pull
+
+Bandwidth details: [09-low-bandwidth.md](09-low-bandwidth.md).
 
 ## Limits (accepted for the MVP)
 

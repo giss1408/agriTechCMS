@@ -47,14 +47,25 @@ class ApiClient {
   String? get userName => _prefs.getString('user_name');
   String? get cooperativeName => _prefs.getString('cooperative_name');
 
-  Future<Map<String, dynamic>> _send(String method, String path, {Object? body, Map<String, String>? headers, bool auth = true, bool retried = false}) async {
+  /// Responses come back gzip-compressed (dart:io sends `Accept-Encoding: gzip` and inflates
+  /// transparently). Large request bodies (sync batches) are gzipped too when `compress` is set.
+  Future<Map<String, dynamic>> _send(String method, String path,
+      {Object? body, Map<String, String>? headers, bool auth = true, bool retried = false, bool compress = false}) async {
     final uri = Uri.parse('$apiUrl$path');
     final h = {'Content-Type': 'application/json', 'Accept-Language': 'fr', ...?headers};
     if (auth && accessToken != null) h['Authorization'] = 'Bearer $accessToken';
     http.Response res;
     try {
       final req = http.Request(method, uri)..headers.addAll(h);
-      if (body != null) req.body = jsonEncode(body);
+      if (body != null) {
+        final bytes = utf8.encode(jsonEncode(body));
+        if (compress && bytes.length > 1024) {
+          req.headers['Content-Encoding'] = 'gzip';
+          req.bodyBytes = gzip.encode(bytes);
+        } else {
+          req.bodyBytes = bytes;
+        }
+      }
       res = await http.Response.fromStream(await _http.send(req).timeout(_timeout));
     } on SocketException {
       throw ApiException(0, 'offline', 'Pas de connexion au serveur');
@@ -71,7 +82,7 @@ class ApiClient {
       throw ApiException(res.statusCode, 'bad_response', 'Réponse illisible du serveur (${res.statusCode})');
     }
     if (res.statusCode == 401 && auth && !retried && await _refresh()) {
-      return _send(method, path, body: body, headers: headers, auth: auth, retried: true);
+      return _send(method, path, body: body, headers: headers, auth: auth, retried: true, compress: compress);
     }
     if (res.statusCode >= 400 || json['success'] != true) {
       final err = (json['errors'] as List?)?.cast<Map<String, dynamic>>().firstOrNull ?? {};
@@ -112,10 +123,18 @@ class ApiClient {
   }
 
   Future<Map<String, dynamic>> push(Map<String, dynamic> body) async =>
-      (await _send('POST', '/sync/push', body: body))['data'] as Map<String, dynamic>;
+      (await _send('POST', '/sync/push', body: body, compress: true))['data'] as Map<String, dynamic>;
 
-  Future<Map<String, dynamic>> pull(String? since, String deviceId) async {
-    final q = since == null ? '' : '?since=${Uri.encodeQueryComponent(since)}';
+  /// Problem report; idempotent on `client_uuid`, so the offline queue can safely retry.
+  Future<String> postIssue(Map<String, dynamic> body, String deviceId) async {
+    final json = await _send('POST', '/issues', body: body, headers: {'X-Device-Id': deviceId});
+    return (json['data'] as Map<String, dynamic>)['reference'] as String;
+  }
+
+  /// `ref` = last `ref_hash` received: the server then omits unchanged prices, zones and settings.
+  Future<Map<String, dynamic>> pull(String? since, String? ref, String deviceId) async {
+    final params = {if (since != null) 'since': since, if (ref != null) 'ref': ref};
+    final q = params.isEmpty ? '' : '?${Uri(queryParameters: params).query}';
     return (await _send('GET', '/sync/pull$q', headers: {'X-Device-Id': deviceId}))['data'] as Map<String, dynamic>;
   }
 }

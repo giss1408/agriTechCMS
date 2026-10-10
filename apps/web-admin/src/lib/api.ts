@@ -75,8 +75,21 @@ async function raw(path: string, init: RequestInit = {}, retry = true): Promise<
   return res;
 }
 
+// The last few failed calls, attached to problem reports so support can see what went wrong.
+export const recentErrors: { at: string; path: string; status: number; code: string }[] = [];
+function remember(path: string, status: number, code: string) {
+  recentErrors.unshift({ at: new Date().toISOString(), path: path.split("?")[0], status, code });
+  recentErrors.length = Math.min(recentErrors.length, 5);
+}
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<{ data: T; meta: Meta }> {
-  const res = await raw(path, init);
+  let res: Response;
+  try {
+    res = await raw(path, init);
+  } catch {
+    remember(path, 0, "network");
+    throw new ApiError(0, "network", "Connexion impossible au serveur. Vérifiez votre connexion internet.");
+  }
   let body: any = null;
   try {
     body = await res.json();
@@ -85,6 +98,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   }
   if (!res.ok || !body.success) {
     const first: ApiErrorItem = body?.errors?.[0] ?? { code: "error", message: res.statusText };
+    remember(path, res.status, first.code);
     throw new ApiError(res.status, first.code, first.message, body?.errors ?? []);
   }
   return { data: body.data as T, meta: body.meta };

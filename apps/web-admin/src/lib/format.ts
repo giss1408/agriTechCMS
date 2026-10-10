@@ -43,6 +43,8 @@ export const STATUS_LABEL: Record<string, string> = {
   success: "Payé",
   failed: "Échec",
   active: "Actif",
+  in_progress: "En cours",
+  resolved: "Résolu",
   inactive: "Inactif",
 };
 
@@ -60,6 +62,8 @@ export const STATUS_TONE: Record<string, "neutral" | "info" | "success" | "warni
   success: "success",
   failed: "danger",
   active: "success",
+  in_progress: "info",
+  resolved: "success",
   inactive: "neutral",
 };
 
@@ -78,3 +82,19 @@ export const EUDR_ISSUE_LABEL: Record<string, string> = {
 };
 
 export const ROLE_LABEL: Record<string, string> = { super_admin: "Super admin", admin: "Administrateur", collector: "Collecteur" };
+
+export const ISSUE_CATEGORY_LABEL: Record<string, string> = {
+  app_bug: "L'application ne marche pas",
+  sync: "Synchronisation / données manquantes",
+  data_error: "Erreur de poids, prix ou montant",
+  payment: "Paiement",
+  account: "Connexion / compte",
+  other: "Autre",
+};
+
+export const ISSUE_SOURCE_LABEL: Record<string, string> = {
+  web: "Web",
+  mobile: "Téléphone collecteur",
+  ussd: "Producteur (USSD)",
+  public: "Acheteur (page lot)",
+};

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FormEvent, useEffect, useState } from "react";
 import { Badge, ErrorBox, PageHead, Status, Tabs, useToast } from "../components/ui";
 import { api } from "../lib/api";
+import { pollEvery } from "../lib/network";
 import { ROLE_LABEL, ago, date, dateTime, fcfa } from "../lib/format";
 import type { Device, Price, User, Zone } from "../lib/types";
 
@@ -152,7 +153,7 @@ function Zones() {
 }
 
 function Devices() {
-  const q = useQuery({ queryKey: ["devices"], queryFn: () => api.get<Device[]>("/sync/devices"), refetchInterval: 30_000 });
+  const q = useQuery({ queryKey: ["devices"], queryFn: () => api.get<Device[]>("/sync/devices"), refetchInterval: pollEvery(120_000) });
   return (
     <div className="card table-wrap">
       <table>
@@ -177,7 +178,7 @@ function Devices() {
 }
 
 function SmsOutbox() {
-  const q = useQuery({ queryKey: ["sms"], queryFn: () => api.get<{ id: string; phone: string; kind: string; body: string; created_at: string }[]>("/dev/sms", { limit: 50 }), refetchInterval: 5000 });
+  const q = useQuery({ queryKey: ["sms"], queryFn: () => api.get<{ id: string; phone: string; kind: string; body: string; created_at: string }[]>("/dev/sms", { limit: 50 }), refetchInterval: pollEvery(15_000) });
   return (
     <div className="stack">
       <p className="muted" style={{ margin: 0 }}>En démonstration, les SMS ne partent pas : ils s'affichent ici (codes de connexion, confirmations de paiement).</p>

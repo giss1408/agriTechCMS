@@ -12,6 +12,7 @@ from ..core.errors import ApiError
 from ..core.phone import normalize_phone
 from ..core.timeutil import campaign_of, utcnow
 from ..models import Collection, Cooperative, Producer
+from . import issues as issue_service
 from .balances import producer_balance
 from .pricing import prices_in_force
 
@@ -33,13 +34,17 @@ async def handle(db: AsyncSession, phone_raw: str, text: str) -> str:
     if not producer:
         return "END Ce numero n'est inscrit dans aucune cooperative. Contactez votre cooperative."
     coop = await db.get(Cooperative, producer.cooperative_id)
-    choice = (text or "").split("*")[-1] if text else ""
+    steps = (text or "").split("*") if text else []
+    choice = steps[-1] if steps else ""
+
+    if steps[:1] == ["4"]:
+        return await _report(db, producer, steps[1:])
 
     if choice == "":
         return (
             f"CON {coop.name[:40]}\n"
             f"Bonjour {producer.first_name}\n"
-            "1. Mon solde\n2. Mes dernieres livraisons\n3. Prix du jour"
+            "1. Mon solde\n2. Mes dernieres livraisons\n3. Prix du jour\n4. Signaler un probleme"
         )
     if choice == "1":
         campaign = campaign_of(utcnow().date(), coop.campaign_start_month)
@@ -76,3 +81,31 @@ async def handle(db: AsyncSession, phone_raw: str, text: str) -> str:
             return "END Prix non encore publies."
         return "END Prix du jour:\n" + "\n".join(f"{p.product} {p.quality}: {_n(p.price_per_kg)} F/kg" for p in prices)
     return "END Choix invalide."
+
+
+USSD_ISSUES = {
+    "1": ("data_error", "Poids ou montant conteste par le producteur"),
+    "2": ("payment", "Paiement non recu selon le producteur"),
+    "3": ("other", "Demande de rappel du producteur"),
+}
+
+
+async def _report(db: AsyncSession, producer: Producer, steps: list[str]) -> str:
+    """4 -> choose the problem -> recorded; the cooperative calls back, and an SMS confirms resolution."""
+    if not steps:
+        return "CON Quel probleme ?\n1. Poids ou montant faux\n2. Paiement non recu\n3. Autre (etre rappele)"
+    if steps[0] not in USSD_ISSUES:
+        return "END Choix invalide."
+    category, message = USSD_ISSUES[steps[0]]
+    last = (
+        await db.execute(
+            select(Collection).where(Collection.producer_id == producer.id).order_by(Collection.collected_at.desc()).limit(1)
+        )
+    ).scalars().first()
+    issue, _ = await issue_service.create(
+        db, cooperative_id=producer.cooperative_id, source="ussd", category=category, message=message,
+        reporter_name=producer.full_name, reporter_phone=producer.phone, producer_id=producer.id,
+        collection_id=last.id if last and category == "data_error" else None,
+    )
+    await db.commit()
+    return f"END Signalement {issue.reference} enregistre. La cooperative va vous rappeler."

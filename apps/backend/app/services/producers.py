@@ -19,18 +19,20 @@ def qr_payload(producer: Producer) -> str:
     return f"{QR_PREFIX}:{producer.id}:{producer.code}"
 
 
-def parcel_out(p: Parcel) -> ParcelOut:
+def parcel_out(p: Parcel, geometry: bool = True) -> ParcelOut:
     out = ParcelOut.model_validate(p)
+    if not geometry:
+        out.geometry = None  # lists only need counts and EUDR flags; polygons are fetched on the detail page
     area = float(p.measured_area_hectares or p.area_hectares or 0) or None
     out.eudr_issues = geo.eudr_issues(p.geometry, area, p.deforestation_status)
     return out
 
 
-def producer_out(p: Producer) -> ProducerOut:
+def producer_out(p: Producer, geometry: bool = True) -> ProducerOut:
     out = ProducerOut.model_validate(p)
     out.zone_name = p.zone.name if p.zone else None
     out.qr_payload = qr_payload(p)
-    out.parcels = [parcel_out(x) for x in p.parcels]
+    out.parcels = [parcel_out(x, geometry) for x in p.parcels]
     return out
 
 

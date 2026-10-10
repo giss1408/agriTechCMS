@@ -61,7 +61,7 @@ async def list_producers(
     column = getattr(Producer, sort.lstrip("-"))
     stmt = stmt.order_by(column.desc() if sort.startswith("-") else column).offset(page.offset).limit(page.per_page)
     rows = (await db.execute(stmt)).scalars().all()
-    return ok([svc.producer_out(p) for p in rows], Meta(page=page.page, per_page=page.per_page, total=total))
+    return ok([svc.producer_out(p, geometry=False) for p in rows], Meta(page=page.page, per_page=page.per_page, total=total))
 
 
 @router.post("/producers", response_model=Envelope[ProducerOut], status_code=201)

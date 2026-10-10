@@ -1,5 +1,6 @@
 """API contracts. Field names match docs/technical/03-api.md."""
 
+import json
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
@@ -390,15 +391,41 @@ class SyncSettings(BaseModel):
     currency: str
 
 
+class SyncProducer(Schema):
+    """What the phone needs to find and pick a producer — no parcels, no geometry (they are heavy and unused offline)."""
+
+    id: str
+    code: str
+    first_name: str
+    last_name: str
+    phone: str | None
+    zone_name: str | None = None
+    status: str
+
+
+class SyncCollection(Schema):
+    """Status feedback for collections recorded on this phone."""
+
+    client_uuid: str
+    id: str
+    reference: str
+    status: str
+    unit_price: int
+    amount: int
+
+
 class SyncPullOut(BaseModel):
     server_time: datetime
     cursor: datetime
     full: bool
-    settings: SyncSettings
-    producers: list[ProducerOut]
-    prices: list[PriceOut]
-    zones: list[ZoneOut]
-    collections: list[CollectionOut]
+    # Prices, zones and settings change rarely: they are omitted (null) when the phone already holds
+    # the version identified by `ref_hash` (sent back as `?ref=`).
+    ref_hash: str
+    settings: SyncSettings | None
+    prices: list[PriceOut] | None
+    zones: list[ZoneOut] | None
+    producers: list[SyncProducer]
+    collections: list[SyncCollection]
 
 
 class DeviceOut(Schema):
@@ -501,3 +528,59 @@ class WebhookIn(BaseModel):
     status: Literal["success", "failed"]
     trans_id: str | None = None
     reason: str | None = None
+
+
+# ---------------------------------------------------------------- problem reports
+
+IssueCategory = Literal["app_bug", "sync", "data_error", "payment", "account", "other"]
+
+
+class IssueIn(BaseModel):
+    client_uuid: str | None = Field(default=None, min_length=8, max_length=64)
+    category: IssueCategory
+    message: str = Field(min_length=5, max_length=2000)
+    collection_id: str | None = None
+    producer_id: str | None = None
+    lot_id: str | None = None
+    context: dict[str, Any] = {}
+
+    @field_validator("context")
+    @classmethod
+    def _small_context(cls, v: dict) -> dict:
+        if len(json.dumps(v, default=str)) > 4000:
+            raise ValueError("context trop volumineux (4 Ko max)")
+        return v
+
+
+class PublicIssueIn(BaseModel):
+    category: Literal["data_error", "other"] = "data_error"
+    message: str = Field(min_length=10, max_length=2000)
+    contact: str | None = Field(default=None, max_length=150, description="Name / email / phone of the buyer")
+
+
+class IssuePatch(BaseModel):
+    status: Literal["open", "in_progress", "resolved"] | None = None
+    resolution_note: str | None = Field(default=None, max_length=2000)
+
+
+class IssueOut(Schema):
+    id: str
+    reference: str
+    source: str
+    category: str
+    message: str
+    status: str
+    reporter_id: str | None
+    reporter_name: str | None
+    reporter_phone: str | None
+    collection_id: str | None
+    collection_reference: str | None = None
+    producer_id: str | None
+    producer_name: str | None = None
+    lot_id: str | None
+    lot_reference: str | None = None
+    context: dict[str, Any]
+    resolution_note: str | None
+    resolved_at: datetime | None
+    created_at: datetime
+    updated_at: datetime

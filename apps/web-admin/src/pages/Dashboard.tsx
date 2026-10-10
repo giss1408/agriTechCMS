@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ErrorBox, Loading, PageHead, Stat } from "../components/ui";
 import { api } from "../lib/api";
+import { pollEvery } from "../lib/network";
 import { fcfa, kg, num, shortDay } from "../lib/format";
 import type { Dashboard } from "../lib/types";
 
@@ -23,7 +24,7 @@ function WeekChart({ series }: { series: Dashboard["series_7d"] }) {
 }
 
 export function DashboardPage() {
-  const q = useQuery({ queryKey: ["dashboard"], queryFn: () => api.get<Dashboard>("/dashboard/summary"), refetchInterval: 30_000 });
+  const q = useQuery({ queryKey: ["dashboard"], queryFn: () => api.get<Dashboard>("/dashboard/summary"), refetchInterval: pollEvery(60_000) });
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorBox error={q.error} />;
   const d = q.data!;
@@ -31,7 +32,7 @@ export function DashboardPage() {
 
   return (
     <div className="stack">
-      <PageHead title="Tableau de bord" subtitle={`Campagne ${d.campaign} · mis à jour toutes les 30 secondes`} />
+      <PageHead title="Tableau de bord" subtitle={`Campagne ${d.campaign} · actualisé automatiquement`} />
       <div className="grid grid-4">
         <Stat label="Collectes du jour" value={d.today.count} sub={`${kg(d.today.weight_kg)} · ${fcfa(d.today.amount)}`} />
         <Stat label="À valider" value={d.pending_validation} sub={<Link to="/collections?status=pending_validation">Voir les collectes →</Link>} />

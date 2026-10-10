@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { ParcelMap } from "../components/ParcelMap";
-import { Badge, ErrorBox, Loading, Stat, Status } from "../components/ui";
+import { Badge, ErrorBox, Loading, Modal, Stat, Status } from "../components/ui";
 import { api } from "../lib/api";
 import { EUDR_ISSUE_LABEL, date, kg, num } from "../lib/format";
 import type { Geometry, Trace } from "../lib/types";
@@ -9,6 +10,7 @@ import type { Geometry, Trace } from "../lib/types";
 /** Public page for buyers — reached from the lot link or the QR printed on the bags. No login. */
 export function TracePage() {
   const { token } = useParams<{ token: string }>();
+  const [reporting, setReporting] = useState(false);
   const q = useQuery({ queryKey: ["trace", token], queryFn: () => api.get<Trace>(`/public/trace/${token}`) });
   if (q.isLoading) return <Loading />;
   if (q.error) return <div className="main"><ErrorBox error={q.error} /></div>;
@@ -69,8 +71,39 @@ export function TracePage() {
         <p className="muted small">
           Données déclarées par la coopérative. Aucune donnée personnelle (téléphone, pièce d'identité) n'est publiée.
           {t.lot.buyer_name && ` Lot expédié à ${t.lot.buyer_name}${t.lot.shipped_at ? ` le ${date(t.lot.shipped_at)}` : ""}.`}
+          {" "}<button className="ghost sm" onClick={() => setReporting(true)}>⚑ Signaler une anomalie sur ce lot</button>
         </p>
+        {reporting && <PublicReport token={token!} lotRef={t.lot.reference} onClose={() => setReporting(false)} />}
       </div>
     </div>
+  );
+}
+
+function PublicReport({ token, lotRef, onClose }: { token: string; lotRef: string; onClose: () => void }) {
+  const [message, setMessage] = useState("");
+  const [contact, setContact] = useState("");
+  const send = useMutation({
+    mutationFn: () => api.post<{ reference: string; message: string }>(`/public/trace/${token}/issues`, { message, contact: contact || null }),
+  });
+  return (
+    <Modal title={`Signaler une anomalie — ${lotRef}`} onClose={onClose} footer={send.isSuccess ? <button className="primary" onClick={onClose}>Fermer</button> : <>
+      <button className="ghost" onClick={onClose}>Annuler</button>
+      <button className="primary" disabled={message.trim().length < 10 || send.isPending} onClick={() => send.mutate()}>Envoyer à la coopérative</button>
+    </>}>
+      {send.isSuccess ? (
+        <div className="stack"><b>{send.data.message}</b><span className="muted">Référence : <span className="mono">{send.data.reference}</span></span></div>
+      ) : (
+        <div className="stack">
+          <label className="field">Anomalie constatée
+            <textarea autoFocus rows={5} value={message} onChange={(e) => setMessage(e.target.value)}
+              placeholder="Poids différent à la réception, parcelle incohérente, producteur inconnu…" />
+          </label>
+          <label className="field">Vos coordonnées (pour être recontacté)
+            <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Nom, société, e-mail ou téléphone" />
+          </label>
+          <ErrorBox error={send.error} />
+        </div>
+      )}
+    </Modal>
   );
 }

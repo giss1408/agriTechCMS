@@ -46,6 +46,7 @@ erDiagram
 | `payment_batches`, `payments` | Payouts | per producer: `gross_amount`, `advance_deduction`, `amount` sent, `advance_allocations`, provider refs |
 | `uploads` | Photos | sha256, size, path |
 | `sync_devices` | Phones | last push/pull, clock offset, app version |
+| `issues` | Problem reports | `reference` `SIG-0042`, `source` (web/mobile/ussd/public), `category`, `status` (open → in_progress → resolved), links to collection / producer / lot, `context` (diagnostics, ≤ 4 KB), `client_uuid` for offline retries |
 | `audit_events` | Append-only log | `entity`, `entity_id`, `action`, `changes` (`{"field": [old, new]}`), actor |
 | `notifications` | Outgoing SMS | with the console provider, this is the demo SMS inbox |
 

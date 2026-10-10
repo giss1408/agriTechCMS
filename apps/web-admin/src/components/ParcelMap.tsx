@@ -1,6 +1,7 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { isSlowConnection } from "../lib/network";
 import { CircleMarker, GeoJSON, MapContainer, TileLayer, Tooltip, useMap } from "react-leaflet";
 import type { Geometry } from "../lib/types";
 
@@ -19,7 +20,20 @@ function FitBounds({ features }: { features: MapFeature[] }) {
 
 /** Parcels on OpenStreetMap tiles. Green = EUDR-ready, amber = something missing. */
 export function ParcelMap({ features, height = 320 }: { features: MapFeature[]; height?: number }) {
+  // Map tiles weigh 200–500 KB per view: on a slow link they load only when asked for.
+  const [show, setShow] = useState(() => !isSlowConnection());
   if (!features.length) return <div className="map empty" style={{ height }}>Aucune parcelle géolocalisée</div>;
+  if (!show) {
+    return (
+      <div className="map empty" style={{ height, display: "grid", placeItems: "center" }}>
+        <div className="stack" style={{ alignItems: "center", gap: 8 }}>
+          <span>{features.length} parcelle(s) géolocalisée(s)</span>
+          <button onClick={() => setShow(true)}>Afficher la carte (≈ 300 Ko)</button>
+          <span className="small muted">Connexion lente détectée : carte non chargée automatiquement</span>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="map" style={{ height }}>
       <MapContainer center={[6.88, -6.45]} zoom={11} style={{ height: "100%" }} scrollWheelZoom={false}>

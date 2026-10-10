@@ -36,6 +36,7 @@ Technical documents are in English (the audience: developers; code and API names
 | [06-payments.md](technical/06-payments.md) | Payout flow, providers, webhook |
 | [07-security-and-privacy.md](technical/07-security-and-privacy.md) | Auth, tenancy, personal data (ARTCI) |
 | [08-development.md](technical/08-development.md) | Run, seed, test, migrate |
+| [09-low-bandwidth.md](technical/09-low-bandwidth.md) | Compression, caching, slim sync — measured before/after |
 | [adr/](technical/adr/) | Architecture decision records |
 
 ## What changed from the archive

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Badge, Empty, ErrorBox, Loading, PageHead, Status, Tabs, useToast } from "../components/ui";
 import { api } from "../lib/api";
+import { pollEvery } from "../lib/network";
 import { OPERATOR_LABEL, date, dateTime, fcfa } from "../lib/format";
 import type { Payable, Payment } from "../lib/types";
 
@@ -97,7 +98,7 @@ function History({ initialStatus }: { initialStatus: string }) {
     queryKey: ["payments", { status }],
     queryFn: () => api.get<Payment[]>("/payments", { status, per_page: 100 }),
     // transfers complete in the background: poll while some are still running
-    refetchInterval: (query) => (query.state.data?.some((p) => p.status === "processing" || p.status === "initiated") ? 3000 : false),
+    refetchInterval: (query) => (query.state.data?.some((p) => p.status === "processing" || p.status === "initiated") ? pollEvery(5000) : false),
   });
   const act = useMutation({
     mutationFn: ({ id, kind }: { id: string; kind: "retry" | "cancel" }) => api.post<Payment>(`/payments/${id}/${kind}`),

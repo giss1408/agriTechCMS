@@ -42,6 +42,12 @@ which survives app restarts and works the same online and in sync batches.
 | 422 | business rule (`moisture_above_threshold`, `weight_above_max`, `no_price`, `unknown_producer`, `nothing_to_pay`…) |
 | 429 | OTP throttling |
 
+### Bandwidth
+
+Responses ≥ 860 bytes are gzip-compressed (`Accept-Encoding: gzip`); request bodies may be sent with
+`Content-Encoding: gzip`. GET JSON responses carry an `ETag`; send `If-None-Match` to get `304` when
+unchanged. See [09-low-bandwidth.md](09-low-bandwidth.md).
+
 ### Pagination and filters
 
 `?page=1&per_page=20` (max 200) on list endpoints; `meta.total` is returned. Filters are plain query params
@@ -58,9 +64,10 @@ which survives app restarts and works the same online and in sync batches.
 | Parcels | `GET/POST /producers/{id}/parcels`, `PATCH/DELETE /parcels/{id}` — GeoJSON `Point` or `Polygon`, or `latitude`/`longitude` shorthand |
 | Advances | `GET/POST /producers/{id}/advances` |
 | Collections | `GET/POST /collections`, `GET /collections/totals`, `GET /collections/stats/daily`, `GET /collections/export` (CSV), `POST /collections/validate` (bulk), `GET/PATCH/DELETE /collections/{id}`, `GET /collections/{id}/history`, `POST /collections/{id}/validate`, `POST /collections/{id}/reject` |
-| Sync | `POST /sync/push`, `GET /sync/pull?since=`, `GET /sync/devices`, `GET /sync/status/{device_id}` — see [05-offline-sync.md](05-offline-sync.md) |
+| Sync | `POST /sync/push`, `GET /sync/pull?since=&ref=`, `GET /sync/devices`, `GET /sync/status/{device_id}` — see [05-offline-sync.md](05-offline-sync.md) |
 | Lots | `GET/POST /lots`, `GET /lots/{id}`, `POST /lots/{id}/collections`, `DELETE /lots/{id}/collections/{cid}`, `POST /lots/{id}/seal`, `POST /lots/{id}/ship`, `GET /lots/{id}/traceability`, `GET /lots/{id}/eudr.geojson` |
 | Payments | `GET /payments/payables`, `GET /payments`, `GET /payments/summary`, `POST /payments/batch`, `GET /payments/{id}`, `POST /payments/{id}/retry`, `POST /payments/{id}/cancel`, `POST /payments/webhook/{provider}` — see [06-payments.md](06-payments.md) |
+| Problem reports | `POST /issues` (idempotent on `client_uuid`; source = `mobile` when `X-Device-Id` is sent), `GET /issues?status=unresolved&source=`, `GET/PATCH /issues/{id}`, public `POST /public/trace/{token}/issues` (max 5 open per lot) |
 | Dashboard & reports | `GET /dashboard/summary`, `GET /reports/campaign?campaign=`, `GET /reports/eudr.geojson` |
 | Public | `GET /public/trace/{token}` (no auth, no personal data) |
 | Channels | `POST /channels/ussd?key=` (form fields `sessionId`, `phoneNumber`, `text`; answers `CON …`/`END …`) |

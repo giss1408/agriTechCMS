@@ -20,6 +20,7 @@ from .core.timeutil import utcnow
 from .models import Advance, Base, Collection, Cooperative, Parcel, Producer, PurchasePrice, User, Zone
 from .schemas import CollectionIn, GpsIn
 from .services import collections as collection_service
+from .services import issues as issue_service
 from .services import lots as lot_service
 from .services import payments as payment_service
 
@@ -164,6 +165,23 @@ async def seed(reset: bool) -> None:
         _, payments, _ = await payment_service.create_batch(db, admin, list(week1)[:15], [], "Paiement semaine 1 (démo)")
         await db.commit()
         await payment_service.dispatch([p.id for p in payments if p.status == "initiated"])
+
+        # Two reports in the inbox: a producer disputing a weight by USSD, a collector with a sync problem
+        disputed = producers[3]
+        last = (
+            await db.execute(select(Collection).where(Collection.producer_id == disputed.id).order_by(Collection.collected_at.desc()))
+        ).scalars().first()
+        await issue_service.create(
+            db, cooperative_id=coop.id, source="ussd", category="data_error", message="Poids ou montant conteste par le producteur",
+            reporter_name=disputed.full_name, reporter_phone=disputed.phone, producer_id=disputed.id,
+            collection_id=last.id if last else None,
+        )
+        await issue_service.create(
+            db, cooperative_id=coop.id, source="mobile", category="sync", reporter=collectors[0],
+            message="Hier soir à Gonaté les collectes restaient « en attente d'envoi » malgré le réseau 3G.",
+            context={"app": "mobile", "app_version": "0.1.0", "pending_collections": 6, "last_sync_error": "Le serveur ne répond pas"},
+        )
+        await db.commit()
 
         print(f"Seeded {coop.name}: {len(producers)} producers, {n} collections, lot {lot.reference}.")
         print("Log in on the web app with +2250700000001 (admin) or on the phone with +2250700000002 (collector).")

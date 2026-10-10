@@ -1,5 +1,7 @@
 """Offline-first sync. See docs/technical/05-synchronisation-offline.md for the protocol."""
 
+import hashlib
+import json
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import or_, select
@@ -11,6 +13,8 @@ from ..models import Collection, Producer, PurchasePrice, SyncDevice, User, Zone
 from ..schemas import (
     PriceOut,
     SyncAccepted,
+    SyncCollection,
+    SyncProducer,
     SyncPullOut,
     SyncPushIn,
     SyncPushOut,
@@ -19,7 +23,6 @@ from ..schemas import (
     ZoneOut,
 )
 from . import collections as collection_service
-from .producers import producer_out
 
 # A row committed just after we read the clock can carry an earlier updated_at. Handing back a cursor
 # slightly in the past means the next pull re-sends a few rows; the app upserts, so that is harmless.
@@ -71,7 +74,9 @@ async def push(db: AsyncSession, user: User, body: SyncPushIn) -> SyncPushOut:
     )
 
 
-async def pull(db: AsyncSession, user: User, since: datetime | None, device_id: str | None) -> SyncPullOut:
+async def pull(
+    db: AsyncSession, user: User, since: datetime | None, device_id: str | None, ref: str | None = None
+) -> SyncPullOut:
     server_now = utcnow()
     coop = user.cooperative
     full = since is None
@@ -109,18 +114,36 @@ async def pull(db: AsyncSession, user: User, since: datetime | None, device_id: 
     user.last_seen_at = server_now
     await db.commit()
 
+    settings = SyncSettings(
+        max_moisture_percent=coop.max_moisture_percent,
+        max_weight_kg=coop.max_weight_kg,
+        campaign=campaign_of(server_now.date(), coop.campaign_start_month),
+        currency=coop.currency,
+    )
+    price_rows = sorted((PriceOut.model_validate(p) for p in prices), key=lambda p: (p.product, p.quality, p.effective_from))
+    zone_rows = sorted((ZoneOut.model_validate(z) for z in zones), key=lambda z: z.id)
+    reference = {
+        "settings": settings.model_dump(mode="json"),
+        "prices": [p.model_dump(mode="json") for p in price_rows],
+        "zones": [{"id": z.id, "name": z.name} for z in zone_rows],
+    }
+    ref_hash = hashlib.blake2b(json.dumps(reference, sort_keys=True).encode(), digest_size=8).hexdigest()
+    unchanged = ref == ref_hash
+
     return SyncPullOut(
         server_time=server_now,
         cursor=server_now - CURSOR_SAFETY,
         full=full,
-        settings=SyncSettings(
-            max_moisture_percent=coop.max_moisture_percent,
-            max_weight_kg=coop.max_weight_kg,
-            campaign=campaign_of(server_now.date(), coop.campaign_start_month),
-            currency=coop.currency,
-        ),
-        producers=[producer_out(p) for p in producers],
-        prices=[PriceOut.model_validate(p) for p in prices],
-        zones=[ZoneOut.model_validate(z) for z in zones],
-        collections=[collection_service.to_out(c) for c in cols],
+        ref_hash=ref_hash,
+        settings=None if unchanged else settings,
+        prices=None if unchanged else price_rows,
+        zones=None if unchanged else zone_rows,
+        producers=[_sync_producer(p) for p in producers],
+        collections=[SyncCollection.model_validate(c) for c in cols],
     )
+
+
+def _sync_producer(p: Producer) -> SyncProducer:
+    out = SyncProducer.model_validate(p)
+    out.zone_name = p.zone.name if p.zone else None
+    return out

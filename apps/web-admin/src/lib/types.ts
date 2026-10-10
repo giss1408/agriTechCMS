@@ -154,6 +154,28 @@ export type Device = {
   pending_on_device: number;
 };
 
+export type IssueStatus = "open" | "in_progress" | "resolved";
+export type Issue = {
+  id: string;
+  reference: string;
+  source: "web" | "mobile" | "ussd" | "public";
+  category: "app_bug" | "sync" | "data_error" | "payment" | "account" | "other";
+  message: string;
+  status: IssueStatus;
+  reporter_name: string | null;
+  reporter_phone: string | null;
+  collection_id: string | null;
+  collection_reference: string | null;
+  producer_id: string | null;
+  producer_name: string | null;
+  lot_id: string | null;
+  lot_reference: string | null;
+  context: Record<string, unknown>;
+  resolution_note: string | null;
+  resolved_at: string | null;
+  created_at: string;
+};
+
 export type Alert = { level: "info" | "warning" | "danger"; code: string; count: number; message: string; link: string };
 
 export type Dashboard = {

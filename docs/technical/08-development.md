@@ -53,7 +53,7 @@ make test      # backend pytest + web typecheck + flutter analyze/test
 
 | Suite | Covers |
 |---|---|
-| `apps/backend/tests` | OTP login and throttling, roles, server-side pricing with dated prices, idempotent replay, business rules, sync push (mixed batch, clock correction), incremental pull, audit, tenant isolation, parcel area and EUDR flags, lot lifecycle and public trace, payments with advances / failure / cancel, webhook signature and idempotency, USSD, dashboard and exports |
+| `apps/backend/tests` | gzip responses and uploads, ETag/304, slim pull and `ref_hash`, problem reports on every channel (idempotency, tenancy, USSD + SMS on resolution, public cap), OTP login and throttling, roles, server-side pricing with dated prices, idempotent replay, business rules, sync push (mixed batch, clock correction), incremental pull, audit, tenant isolation, parcel area and EUDR flags, lot lifecycle and public trace, payments with advances / failure / cancel, webhook signature and idempotency, USSD, dashboard and exports |
 | `apps/mobile-collector/test` | QR parsing, decimal input, price-on-date (same rule as server), FCFA formatting, phone normalisation |
 
 ## Migrations
